@@ -1,0 +1,147 @@
+# Approach 1: Separate Kptfile setters for each cluster
+# You DON'T need separate Kptfiles - just use different setter values in PackageVariants
+
+---
+# PackageVariant for my-ran cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: baseline-my-ran
+  namespace: default
+  annotations:
+    nephio.org/description: "Baseline for RAN workload cluster"
+spec:
+  upstream:
+    repo: nephio-blueprints
+    package: cluster-baseline
+    revision: main
+  downstream:
+    repo: nephio-my-ran
+    package: cluster-baseline
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-ran
+      cluster-type: workload
+      workload-type: ran
+    repositoryRef:
+      name: nephio-my-ran
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          # Cluster-specific values for my-ran
+          cluster-name: my-ran
+          cluster-type: workload
+          workload-type: ran
+          site-id: site-ran-01
+          cluster-repo-url: https://github.com/YOUR-ORG/nephio-my-ran.git
+          cluster-repo-branch: main
+          namespace-prefix: ""
+          storage-class-name: local-path
+          enable-node-labeling-job: "true"
+          enable-pod-security: "true"
+
+---
+# PackageVariant for my-core cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: baseline-my-core
+  namespace: default
+  annotations:
+    nephio.org/description: "Baseline for Core workload cluster"
+spec:
+  upstream:
+    repo: nephio-blueprints
+    package: cluster-baseline  # SAME package as my-ran
+    revision: main
+  downstream:
+    repo: nephio-my-core
+    package: cluster-baseline
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-core
+      cluster-type: workload
+      workload-type: core
+    repositoryRef:
+      name: nephio-my-core
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          # Cluster-specific values for my-core (DIFFERENT from my-ran)
+          cluster-name: my-core
+          cluster-type: workload
+          workload-type: core
+          site-id: site-core-01
+          cluster-repo-url: https://github.com/YOUR-ORG/nephio-my-core.git
+          cluster-repo-branch: main
+          namespace-prefix: ""
+          storage-class-name: local-path
+          enable-node-labeling-job: "true"
+          enable-pod-security: "true"
+
+---
+# Approach 2: If you REALLY want separate Kptfiles (NOT RECOMMENDED)
+# You would create:
+# - cluster-baseline-ran/Kptfile (with ran-specific defaults)
+# - cluster-baseline-core/Kptfile (with core-specific defaults)
+#
+# But this creates maintenance burden - every change needs to be made twice
+# Better to use ONE package with setters
+
+---
+# Approach 3: Using injection (advanced)
+# You can inject cluster-specific ConfigMaps into the package
+
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: baseline-my-ran-with-injection
+  namespace: default
+spec:
+  upstream:
+    repo: nephio-blueprints
+    package: cluster-baseline
+    revision: main
+  downstream:
+    repo: nephio-my-ran
+    package: cluster-baseline
+  injectors:
+    # Inject cluster-specific configuration
+    - name: cluster-config
+      configMapRef:
+        name: my-ran-cluster-config
+        namespace: default
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+
+---
+# ConfigMap with cluster-specific config (for injection approach)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-ran-cluster-config
+  namespace: default
+data:
+  cluster-name: my-ran
+  workload-type: ran
+  site-id: site-ran-01
+  # ... more config
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-core-cluster-config
+  namespace: default
+data:
+  cluster-name: my-core
+  workload-type: core
+  site-id: site-core-01
+  # ... more config

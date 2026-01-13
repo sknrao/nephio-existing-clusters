@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-plane-network-intent
+  namespace: default
+  annotations:
+    config.kubernetes.io/local-config: "true"
+    nephio.org/network-type: "user-plane"
+    nephio.org/applies-to: "ran,core"
+data:
+  networkName: "user-plane"
+  ipRange: "192.168.20.0/24" # kpt-set: ${user-plane-range}
+  gateway: "192.168.20.1" # kpt-set: ${user-plane-gateway}
+  vlan: "200" # kpt-set: ${user-plane-vlan}
+  interface: "eth0" # kpt-set: ${interface-name}
+  mtu: "1500" # kpt-set: ${mtu}
+  description: "5G User Plane Network - N3/N4/N6/N9 interfaces"
+  excludeRanges: |
+    - 192.168.20.1-192.168.20.10

@@ -1,0 +1,34 @@
+# PackageVariants for deploying addon components to workload clusters
+
+---
+# 4. Deploy platform-addons to my-core
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: addons-my-core
+  namespace: default
+spec:
+  upstream:
+    repo: nephio-blueprints
+    package: platform-addons
+    revision: main
+  downstream:
+    repo: nephio-my-core
+    package: platform-addons
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-core
+    repositoryRef:
+      name: nephio-my-core
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          cluster-name: my-core
+          local-path-provisioner: "true"
+          storage-class-name: local-path
+          enable-prometheus: "false"
+          enable-metrics-server: "true"
+          enable-nginx-ingress: "false"

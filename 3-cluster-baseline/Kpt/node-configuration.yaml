@@ -1,0 +1,121 @@
+# Node labels and taints for workload placement
+# These help Nephio operators and schedulers place workloads correctly
+
+# NOTE: Node labels must be applied using kubectl, not declaratively
+# This file documents the required labels and provides a script
+
+# For my-ran cluster node:
+# kubectl label node <node-name> \
+#   nephio.org/cluster-name=my-ran \
+#   nephio.org/cluster-type=workload \
+#   nephio.org/site-id=site-ran-01 \
+#   nephio.org/workload-type=ran \
+#   topology.kubernetes.io/zone=zone-a
+
+# For my-core cluster node:
+# kubectl label node <node-name> \
+#   nephio.org/cluster-name=my-core \
+#   nephio.org/cluster-type=workload \
+#   nephio.org/site-id=site-core-01 \
+#   nephio.org/workload-type=core \
+#   topology.kubernetes.io/zone=zone-a
+
+---
+# ConfigMap with node labeling script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-config-script
+  namespace: kube-system
+  annotations:
+    config.kubernetes.io/local-config: "true"
+data:
+  label-nodes.sh: |
+    #!/bin/bash
+    # Auto-label nodes based on cluster context
+    
+    CLUSTER_NAME="${CLUSTER_NAME:-my-ran}" # kpt-set: ${cluster-name}
+    WORKLOAD_TYPE="${WORKLOAD_TYPE:-ran}"  # ran or core
+    SITE_ID="${SITE_ID:-site-01}"
+    
+    echo "Labeling nodes for cluster: $CLUSTER_NAME"
+    
+    for node in $(kubectl get nodes -o name); do
+      echo "Labeling $node..."
+      
+      kubectl label $node \
+        nephio.org/cluster-name=$CLUSTER_NAME \
+        nephio.org/cluster-type=workload \
+        nephio.org/site-id=$SITE_ID \
+        nephio.org/workload-type=$WORKLOAD_TYPE \
+        topology.kubernetes.io/zone=zone-a \
+        --overwrite
+        
+      # Add hardware capability labels if needed
+      # kubectl label $node hw.nephio.org/sriov=true --overwrite
+      # kubectl label $node hw.nephio.org/dpdk=true --overwrite
+    done
+    
+    echo "Node labeling complete!"
+    kubectl get nodes --show-labels
+
+---
+# Job to apply node labels automatically (optional)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: label-nodes-job
+  namespace: kube-system
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: node-labeler
+      restartPolicy: OnFailure
+      containers:
+      - name: node-labeler
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash", "/scripts/label-nodes.sh"]
+        env:
+        - name: CLUSTER_NAME
+          value: "my-ran" # kpt-set: ${cluster-name}
+        - name: WORKLOAD_TYPE
+          value: "ran"
+        - name: SITE_ID
+          value: "site-ran-01"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: node-config-script
+          defaultMode: 0755
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-labeler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-labeler
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-labeler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-labeler
+subjects:
+- kind: ServiceAccount
+  name: node-labeler
+  namespace: kube-system

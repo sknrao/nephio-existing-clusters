@@ -1,0 +1,217 @@
+# PackageVariants for deploying networking components to workload clusters
+# Deploy these to your Nephio management cluster
+
+---
+# 1. Deploy Multus to my-ran cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: multus-my-ran
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints  # Your networking catalog repo
+    package: multus-cni
+    revision: main
+  downstream:
+    repo: nephio-my-ran  # Target cluster repo
+    package: multus-cni
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-ran
+    repositoryRef:
+      name: nephio-my-ran
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          multus-image: ghcr.io/k8snetworkplumbingwg/multus-cni:v4.0.2
+          cni-plugins-image: ghcr.io/k8snetworkplumbingwg/cni-plugins:v1.2.0
+
+---
+# 2. Deploy Multus to my-core cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: multus-my-core
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints
+    package: multus-cni
+    revision: main
+  downstream:
+    repo: nephio-my-core
+    package: multus-cni
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-core
+    repositoryRef:
+      name: nephio-my-core
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          multus-image: ghcr.io/k8snetworkplumbingwg/multus-cni:v4.0.2
+          cni-plugins-image: ghcr.io/k8snetworkplumbingwg/cni-plugins:v1.2.0
+
+---
+# 3. Deploy Whereabouts to my-ran cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: whereabouts-my-ran
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints
+    package: whereabouts-ipam
+    revision: main
+  downstream:
+    repo: nephio-my-ran
+    package: whereabouts-ipam
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-ran
+    repositoryRef:
+      name: nephio-my-ran
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          whereabouts-image: ghcr.io/k8snetworkplumbingwg/whereabouts:v0.6.3
+
+---
+# 4. Deploy Whereabouts to my-core cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: whereabouts-my-core
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints
+    package: whereabouts-ipam
+    revision: main
+  downstream:
+    repo: nephio-my-core
+    package: whereabouts-ipam
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-core
+    repositoryRef:
+      name: nephio-my-core
+    removeLocalConfigResources: true
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          whereabouts-image: ghcr.io/k8snetworkplumbingwg/whereabouts:v0.6.3
+
+---
+# 5. Deploy Network Intents (shared blueprint - not cluster specific)
+# This is just the intent definition, not per-cluster deployment
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: network-intents
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints
+    package: network-intents
+    revision: main
+  downstream:
+    repo: networking-blueprints  # Keep in same repo as reference
+    package: network-intents-configured
+  adoption: adoptExisting
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          # Customize for your LAN
+          control-plane-range: "192.168.10.0/24"
+          control-plane-gateway: "192.168.10.1"
+          control-plane-vlan: "0"  # No VLAN
+          user-plane-range: "192.168.20.0/24"
+          user-plane-gateway: "192.168.20.1"
+          user-plane-vlan: "0"  # No VLAN
+          interface-name: "eth0"  # Your actual interface
+          mtu: "1500"
+
+---
+# 6. Render NADs for my-ran cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: nads-my-ran
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints
+    package: network-attachment-renderer
+    revision: main
+  downstream:
+    repo: nephio-my-ran
+    package: network-attachments
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-ran
+      target-namespace: openairinterface
+    repositoryRef:
+      name: nephio-my-ran
+    removeLocalConfigResources: true
+  injectors:
+    - name: network-intents
+      # Inject the network intent ConfigMaps
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          target-cluster: my-ran
+          target-namespace: openairinterface
+      # Custom KRM function to render NADs from intents
+      - image: gcr.io/nephio/nad-fn:v3.0.0
+        configPath: nad-renderer-config.yaml
+
+---
+# 7. Render NADs for my-core cluster
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariant
+metadata:
+  name: nads-my-core
+  namespace: default
+spec:
+  upstream:
+    repo: networking-blueprints
+    package: network-attachment-renderer
+    revision: main
+  downstream:
+    repo: nephio-my-core
+    package: network-attachments
+  adoption: adoptExisting
+  packageContext:
+    data:
+      cluster-name: my-core
+      target-namespace: free5gc
+    repositoryRef:
+      name: nephio-my-core
+    removeLocalConfigResources: true
+  injectors:
+    - name: network-intents
+  pipeline:
+    mutators:
+      - image: gcr.io/kpt-fn/apply-setters:v0.2
+        configMap:
+          target-cluster: my-core
+          target-namespace: free5gc
+      - image: gcr.io/nephio/nad-fn:v3.0.0
+        configPath: nad-renderer-config.yaml

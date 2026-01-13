@@ -1,0 +1,136 @@
+#==============================================================================
+# Repository CR for nephio-blueprints (UPSTREAM)
+# Purpose: Blueprint packages (cluster-baseline, platform-addons, networking)
+# Deployment: false (this is a source/template repository)
+#==============================================================================
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: nephio-blueprints
+  namespace: default
+  labels:
+    nephio.org/repository-type: upstream
+    nephio.org/content-type: blueprints
+spec:
+  description: Nephio blueprint packages for infrastructure and networking
+  type: git
+  content: Package
+  deployment: false  # This is an upstream/blueprint repo
+  git:
+    repo: https://github.com/YOUR-ORG/nephio-blueprints.git  # CHANGE THIS
+    branch: main
+    directory: /
+    # auth: none  # Use this for public repos
+    # For private repos, uncomment below:
+    # secretRef:
+    #   name: git-credentials
+
+---
+
+#==============================================================================
+# Repository CR for nephio-my-ran (DOWNSTREAM)
+# Purpose: Rendered packages for RAN cluster
+# Deployment: true (Porch writes here, ConfigSync reads from here)
+#==============================================================================
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: nephio-my-ran
+  namespace: default
+  labels:
+    nephio.org/repository-type: downstream
+    nephio.org/cluster: my-ran
+    nephio.org/workload-type: ran
+spec:
+  description: Deployment packages for my-ran workload cluster
+  type: git
+  content: Package
+  deployment: true  # This is a deployment/downstream repo
+  git:
+    repo: https://github.com/YOUR-ORG/nephio-my-ran.git  # CHANGE THIS
+    branch: main
+    directory: /
+    # auth: none  # Use this for public repos
+    # For private repos, uncomment below:
+    # secretRef:
+    #   name: git-credentials
+
+---
+
+#==============================================================================
+# Repository CR for nephio-my-core (DOWNSTREAM)
+# Purpose: Rendered packages for CORE cluster
+# Deployment: true (Porch writes here, ConfigSync reads from here)
+#==============================================================================
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: nephio-my-core
+  namespace: default
+  labels:
+    nephio.org/repository-type: downstream
+    nephio.org/cluster: my-core
+    nephio.org/workload-type: core
+spec:
+  description: Deployment packages for my-core workload cluster
+  type: git
+  content: Package
+  deployment: true  # This is a deployment/downstream repo
+  git:
+    repo: https://github.com/YOUR-ORG/nephio-my-core.git  # CHANGE THIS
+    branch: main
+    directory: /
+    # auth: none  # Use this for public repos
+    # For private repos, uncomment below:
+    # secretRef:
+    #   name: git-credentials
+
+---
+
+#==============================================================================
+# OPTIONAL: Git Credentials Secret (for private repositories)
+# Only needed if your repos are private
+#==============================================================================
+
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: git-credentials
+#   namespace: default
+# type: kubernetes.io/basic-auth
+# stringData:
+#   username: YOUR_GITHUB_USERNAME
+#   password: YOUR_GITHUB_TOKEN  # Use Personal Access Token, not password
+#   # For GitHub: Token needs 'repo' scope
+#   # For GitLab: Token needs 'read_repository' and 'write_repository' scopes
+
+---
+
+#==============================================================================
+# ALTERNATIVE: Single Downstream Repository (Combined Approach)
+# Use this instead of separate my-ran and my-core repos if you prefer
+# Only apply ONE of: (separate repos above) OR (combined repo below)
+#==============================================================================
+
+# apiVersion: config.porch.kpt.dev/v1alpha1
+# kind: Repository
+# metadata:
+#   name: nephio-workload-clusters
+#   namespace: default
+#   labels:
+#     nephio.org/repository-type: downstream
+#     nephio.org/content-type: multi-cluster
+# spec:
+#   description: Deployment packages for all workload clusters (ran/ and core/)
+#   type: git
+#   content: Package
+#   deployment: true
+#   git:
+#     repo: https://github.com/YOUR-ORG/nephio-workload-clusters.git
+#     branch: main
+#     directory: /
+#     # Porch will see entire repo
+#     # PackageVariants will specify ran/ or core/ as package prefix

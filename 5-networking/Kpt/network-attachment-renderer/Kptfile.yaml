@@ -1,0 +1,23 @@
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: network-attachment-renderer
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: Renders NetworkAttachmentDefinitions from network intents
+  keywords:
+    - nad
+    - multus
+    - network-attachment
+
+pipeline:
+  mutators:
+    - image: gcr.io/kpt-fn/apply-setters:v0.2
+      configMap:
+        target-cluster: "my-ran"
+        target-namespace: "openairinterface"
+    
+    # Custom KRM function to render NADs from intents
+    - image: gcr.io/nephio-project/nad-renderer:v1.0.0
+      configPath: nad-renderer-config.yaml

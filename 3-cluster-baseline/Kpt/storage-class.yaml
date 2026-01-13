@@ -1,0 +1,148 @@
+# Storage Classes for different use cases
+# Note: The actual provisioner (local-path-provisioner) is in platform-addons
+# This file just defines the StorageClass resources
+
+---
+# Default storage class - local path provisioning
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path # kpt-set: ${storage-class-name}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: false
+
+---
+# Fast storage class (same as default for now, but can point to SSD path)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path-fast
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: false
+# In local-path-provisioner config, you can map this to a different path:
+# e.g., /ssd/local-path vs /hdd/local-path
+
+---
+# Retain storage class - for important data that should survive pod deletion
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path-retain
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain  # Keep PV after PVC deletion
+allowVolumeExpansion: false
+
+---
+# ConfigMap documenting storage class usage
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storage-class-guide
+  namespace: kube-system
+  annotations:
+    config.kubernetes.io/local-config: "true"
+data:
+  README.md: |
+    # Storage Class Usage Guide
+    
+    ## Available Storage Classes
+    
+    1. **local-path** (default)
+       - Use for: General purpose storage
+       - Path: /opt/local-path-provisioner
+       - Reclaim: Delete (PV removed when PVC deleted)
+       - Example: MongoDB for Free5GC
+    
+    2. **local-path-fast**
+       - Use for: High-performance workloads
+       - Path: Can be configured to use SSD
+       - Reclaim: Delete
+       - Example: UPF packet buffer
+    
+    3. **local-path-retain**
+       - Use for: Critical data that must survive cluster changes
+       - Path: /opt/local-path-provisioner
+       - Reclaim: Retain (manual cleanup required)
+       - Example: Subscriber database backups
+    
+    ## Usage Examples
+    
+    ### Default Storage Class
+    ```yaml
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: mongodb-data
+    spec:
+      accessModes: [ReadWriteOnce]
+      resources:
+        requests:
+          storage: 10Gi
+      # storageClassName not specified = uses default
+    ```
+    
+    ### Fast Storage
+    ```yaml
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: upf-buffer
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: local-path-fast
+      resources:
+        requests:
+          storage: 5Gi
+    ```
+    
+    ### Retained Storage
+    ```yaml
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: subscriber-db-backup
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: local-path-retain
+      resources:
+        requests:
+          storage: 20Gi
+    ```
+    
+    ## Important Notes
+    
+    - All storage classes use **WaitForFirstConsumer** binding
+      - PV is not created until a pod uses the PVC
+      - Ensures PV is created on the correct node
+    
+    - Single-node clusters: All PVs created on the same node
+      - Not a problem since there's only one node
+    
+    - Multi-node consideration (future):
+      - Local path provisioner creates PV on node where pod is scheduled
+      - Pods are node-affine to their PVs
+      - Use StatefulSets for proper pod-to-PV mapping
+    
+    ## Monitoring Storage Usage
+    
+    ```bash
+    # Check PVCs
+    kubectl get pvc -A
+    
+    # Check PVs
+    kubectl get pv
+    
+    # Check disk usage on node
+    df -h /opt/local-path-provisioner
+    ```

@@ -1,0 +1,30 @@
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: network-intents
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: High-level network intent definitions for control and user planes
+  keywords:
+    - network
+    - intent
+    - 5g
+
+pipeline:
+  mutators:
+    - image: gcr.io/kpt-fn/apply-setters:v0.2
+      configMap:
+        # Control Plane Network
+        control-plane-range: "192.168.10.0/24"
+        control-plane-gateway: "192.168.10.1"
+        control-plane-vlan: "100"
+        
+        # User Plane Network
+        user-plane-range: "192.168.20.0/24"
+        user-plane-gateway: "192.168.20.1"
+        user-plane-vlan: "200"
+        
+        # Common settings
+        interface-name: "eth0"
+        mtu: "1500"

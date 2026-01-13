@@ -1,0 +1,188 @@
+# Default resource limits for all namespaces
+# Prevents pods without resource requests/limits from consuming all resources
+
+---
+# LimitRange for RAN namespaces
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: openairinterface
+spec:
+  limits:
+  # Container defaults
+  - type: Container
+    default:
+      cpu: "2"           # Default limit if not specified
+      memory: "4Gi"
+    defaultRequest:
+      cpu: "500m"        # Default request if not specified
+      memory: "1Gi"
+    max:
+      cpu: "8"           # Maximum a single container can request
+      memory: "16Gi"
+    min:
+      cpu: "100m"        # Minimum a container must request
+      memory: "128Mi"
+  
+  # Pod defaults (sum of all containers)
+  - type: Pod
+    max:
+      cpu: "16"          # Maximum for entire pod
+      memory: "32Gi"
+  
+  # PVC defaults
+  - type: PersistentVolumeClaim
+    max:
+      storage: "50Gi"    # Maximum PVC size
+    min:
+      storage: "1Gi"     # Minimum PVC size
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: oai-ran-cucp
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "2"
+      memory: "4Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "1Gi"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: oai-ran-cuup
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "4"           # CU-UP needs more for user plane processing
+      memory: "8Gi"
+    defaultRequest:
+      cpu: "1"
+      memory: "2Gi"
+    max:
+      cpu: "12"
+      memory: "24Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: oai-ran-du
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "4"           # DU also needs significant resources
+      memory: "8Gi"
+    defaultRequest:
+      cpu: "1"
+      memory: "2Gi"
+    max:
+      cpu: "16"          # DU can use more CPU for PHY processing
+      memory: "32Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+
+---
+# LimitRange for Core namespaces
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: free5gc
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "2"
+      memory: "4Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "1Gi"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+  - type: PersistentVolumeClaim
+    max:
+      storage: "100Gi"   # Core needs more storage for databases
+    min:
+      storage: "1Gi"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: free5gc-cp
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "2"
+      memory: "4Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "1Gi"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: free5gc-up
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "4"           # UPF needs more for packet processing
+      memory: "8Gi"
+    defaultRequest:
+      cpu: "1"
+      memory: "2Gi"
+    max:
+      cpu: "16"
+      memory: "32Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+
+---
+# Note: These are DEFAULTS and LIMITS
+# Network function packages can override these by specifying their own
+# requests/limits in their pod specs
+#
+# Benefits:
+# 1. Prevents accidental resource exhaustion
+# 2. Forces explicit resource declaration
+# 3. Protects single-node clusters from one bad pod
+# 4. Enables better capacity planning

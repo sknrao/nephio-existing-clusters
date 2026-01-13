@@ -1,0 +1,32 @@
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: platform-addons
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: Platform add-ons for Nephio workload clusters (storage, ingress, monitoring)
+  keywords:
+    - nephio
+    - addons
+    - storage
+    - monitoring
+  site: https://nephio.org
+
+pipeline:
+  mutators:
+    - image: gcr.io/kpt-fn/apply-setters:v0.2
+      configMap:
+        # Cluster identification
+        cluster-name: my-ran
+        
+        # Storage configuration
+        local-path-provisioner: "true"  # Set to false if using other storage
+        storage-class-name: local-path
+        
+        # Monitoring (optional)
+        enable-prometheus: "false"
+        enable-metrics-server: "true"
+        
+        # Ingress (optional)
+        enable-nginx-ingress: "false"
